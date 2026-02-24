@@ -6,4 +6,22 @@ services:
     ports:
       - "80:8000"
     environment:
+      HII_BACKEND: ${HII_BACKEND:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+
+      OPENCLAW_LOCAL: ${OPENCLAW_LOCAL:-true}
+      OPENCLAW_PROFILE: ${OPENCLAW_PROFILE:-hii}
+      OPENCLAW_AGENT: ${OPENCLAW_AGENT:-main}
+      OPENCLAW_SESSION_ID: ${OPENCLAW_SESSION_ID:-}
+      OPENCLAW_THINKING: ${OPENCLAW_THINKING:-low}
+      OPENCLAW_CMD: ${OPENCLAW_CMD:-}
+
+      NODE_OPTIONS: --max-old-space-size=2048
+    volumes:
+      - openclaw_global:/root/.openclaw
+      - openclaw_hii:/root/.openclaw-hii
+
+volumes:
+  openclaw_global:
+  openclaw_hii:
