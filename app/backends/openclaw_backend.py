@@ -58,6 +58,16 @@ class OpenClawBackend(HiiBackend):
         return data
 
     def _call_openclaw_text(self, prompt: str) -> str:
+        # --- Prompt slimming: keep only the dynamic part (people list) ---
+        marker = "People to score:"
+        if marker in prompt:
+            prompt = marker + "\n" + prompt.split(marker, 1)[1].strip()
+
+        # Hard cap as extra safety (prevents accidental massive prompts)
+        MAX_CHARS = 2000
+        if len(prompt) > MAX_CHARS:
+            prompt = prompt[:MAX_CHARS] + "\n..."
+
         cmd = [
             "openclaw",
             "--profile",

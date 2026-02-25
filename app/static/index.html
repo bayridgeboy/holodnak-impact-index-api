@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Holodnak Impact Index</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 900px; }
+    h1 { margin: 0 0 8px; }
+    .muted { color: #666; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 12px 0; }
+    .person { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
+    label { font-size: 12px; color: #444; display:block; margin-bottom: 4px; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+    textarea { min-height: 60px; resize: vertical; }
+    .controls { display:flex; gap: 12px; align-items:center; margin: 12px 0; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .cards { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 14px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
+    .score { font-size: 28px; font-weight: 800; }
+    .pill { display:inline-block; padding: 3px 8px; border: 1px solid #ccc; border-radius: 999px; font-size: 12px; margin-left: 8px; }
+    .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+    .k { font-size: 12px; color:#666; }
+    .v { font-size: 16px; font-weight: 700; }
+    .error { color: #b00020; white-space: pre-wrap; margin-top: 10px; }
+    .ref { margin-top: 10px; padding: 10px; border-left: 4px solid #ddd; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <h1>Holodnak Impact Index</h1>
+  <div class="muted">Enter 1–3 people. If you leave descriptions blank, the API will ask for one-line blurbs.</div>
+
+  <div class="controls">
+    <button id="addBtn">+ Add person</button>
+    <button id="runBtn">Run HII</button>
+    <label style="display:flex; align-items:center; gap:8px; margin:0;">
+      <input id="hotTake" type="checkbox" checked />
+      hot_take
+    </label>
+    <span id="status" class="muted"></span>
+  </div>
+
+  <div id="people"></div>
+
+  <div id="result"></div>
+  <div id="error" class="error"></div>
+
+<script>
+  const peopleEl = document.getElementById('people');
+  const resultEl = document.getElementById('result');
+  const errorEl = document.getElementById('error');
+  const statusEl = document.getElementById('status');
+  const runBtn = document.getElementById('runBtn');
+  const addBtn = document.getElementById('addBtn');
+  const hotTakeEl = document.getElementById('hotTake');
+
+  let people = [
+    { name: "Alexander Belikoff", description: "" },
+    { name: "Stas Holodnak", description: "" }
+  ];
+
+  function renderPeople(highlightMissingNames = []) {
+    peopleEl.innerHTML = "";
+    people.forEach((p, idx) => {
+      const div = document.createElement('div');
+      div.className = 'person';
+
+      const isMissing = highlightMissingNames.includes(p.name);
+
+      div.innerHTML = `
+        <div class="row">
+          <div>
+            <label>Name</label>
+            <input data-field="name" data-idx="${idx}" value="${escapeHtml(p.name)}" />
+          </div>
+          <div>
+            <label>Description (one short line)</label>
+            <textarea data-field="description" data-idx="${idx}" placeholder="e.g., Software engineer; built high-volume data systems.">${escapeHtml(p.description || "")}</textarea>
+            ${isMissing ? `<div class="error" style="margin:6px 0 0;">Please add a 1-line description for ${escapeHtml(p.name)}.</div>` : ``}
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button data-action="remove" data-idx="${idx}" ${people.length<=1 ? "disabled":""}>Remove</button>
+          </div>
+        </div>
+      `;
+      peopleEl.appendChild(div);
+    });
+  }
+
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+    }[c]));
+  }
+
+  peopleEl.addEventListener('input', (e) => {
+    const field = e.target.getAttribute('data-field');
+    const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+    if (!field || Number.isNaN(idx)) return;
+    people[idx][field] = e.target.value;
+  });
+
+  peopleEl.addEventListener('click', (e) => {
+    const action = e.target.getAttribute('data-action');
+    const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+    if (action === "remove" && !Number.isNaN(idx) && people.length > 1) {
+      people.splice(idx, 1);
+      renderPeople();
+    }
+  });
+
+  addBtn.addEventListener('click', () => {
+    if (people.length >= 3) return;
+    people.push({ name: "", description: "" });
+    renderPeople();
+  });
+
+  async function run() {
+    errorEl.textContent = "";
+    resultEl.innerHTML = "";
+    statusEl.textContent = "";
+    runBtn.disabled = true;
+
+    const payload = {
+      people: people.map(p => ({
+        name: (p.name || "").trim(),
+        description: (p.description || "").trim() || null
+      })),
+      hot_take: !!hotTakeEl.checked
+    };
+
+    statusEl.textContent = "Calling /hii ...";
+
+    try {
+      const res = await fetch("/hii", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(JSON.stringify(data, null, 2));
+      }
+
+      if (data.status === "needs_input") {
+        statusEl.textContent = "Needs input.";
+        renderPeople(data.names || []);
+        errorEl.textContent = data.question || "Need more input.";
+        return;
+      }
+
+      statusEl.textContent = "OK";
+      renderResult(data);
+    } catch (err) {
+      statusEl.textContent = "";
+      errorEl.textContent = String(err);
+    } finally {
+      runBtn.disabled = false;
+    }
+  }
+
+  function renderResult(data) {
+    const cards = (data.people || []).map(p => `
+      <div class="card">
+        <div>
+          <span class="score">${p.hii_score}</span>
+          <span class="pill">${p.label}</span>
+          <span class="pill">${p.tier}</span>
+        </div>
+        <div class="grid3">
+          <div><div class="k">scale</div><div class="v">${p.subscores?.scale ?? ""}</div></div>
+          <div><div class="k">recognition</div><div class="v">${p.subscores?.recognition ?? ""}</div></div>
+          <div><div class="k">legacy</div><div class="v">${p.subscores?.legacy ?? ""}</div></div>
+        </div>
+        <div style="margin-top:10px;"><b>Summary:</b> ${escapeHtml(p.summary || "")}</div>
+        ${p.hot_take ? `<div style="margin-top:6px;"><b>Hot take:</b> ${escapeHtml(p.hot_take)}</div>` : ``}
+      </div>
+    `).join("");
+
+    const ref = data.referee ? `<div class="ref"><b>Referee:</b> ${escapeHtml(data.referee)}</div>` : "";
+    const disc = data.disclaimer ? `<div class="muted" style="margin-top:10px;">${escapeHtml(data.disclaimer)}</div>` : "";
+
+    resultEl.innerHTML = `<div class="cards">${cards}</div>${ref}${disc}`;
+  }
+
+  runBtn.addEventListener('click', run);
+
+  renderPeople();
+</script>
+</body>
+</html>

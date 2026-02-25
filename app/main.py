@@ -1,4 +1,7 @@
 import os
+import re
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import Union
 
 from fastapi import FastAPI, HTTPException
@@ -11,7 +14,30 @@ from app.backends.openai_backend import OpenAIBackend
 from app.backends.openclaw_backend import OpenClawBackend
 
 app = FastAPI(title="Holodnak Impact Index API", version="0.3.0")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+@app.get("/")
+def index():
+    return FileResponse("app/static/index.html")
+
+def _looks_placeholder(s: str | None) -> bool:
+    if not s:
+        return True
+    t = s.strip().lower()
+
+    # obvious placeholders / templates
+    if any(x in t for x in ["<", ">", "tbd", "todo", "known for x", "contribution to x"]):
+        return True
+
+    # too short to be meaningful
+    if len(t) < 12:
+        return True
+
+    # "X" as a stand-in (common in drafts)
+    if re.search(r"\bknown for\s+x\b", t) or re.search(r"\bfor x\b", t):
+        return True
+
+    return False
 
 def get_backend() -> HiiBackend:
     backend_name = os.getenv("HII_BACKEND", "openai").lower()
@@ -46,11 +72,14 @@ def score(req: HiiScoreRequest):
 def hii(req: HiiRequestV2):
     try:
         # One-follow-up rule: if we don't have enough info, ask exactly one simple question
-        if needs_one_followup(req.people):
+        missing = [p.name for p in req.people if _looks_placeholder(p.description)]
+
+        # One-follow-up rule: if we don't have enough info, ask exactly one simple question
+        if needs_one_followup(req.people) or missing:
             return HiiNeedInputResponse(
                 status="needs_input",
                 question=followup_question(),
-                names=[p.name for p in req.people],
+                names=missing if missing else [p.name for p in req.people],
             )
 
         backend = get_backend()
