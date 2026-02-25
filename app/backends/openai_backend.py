@@ -1,84 +1,133 @@
 import json
 import os
+from typing import Any, Dict, List
 
-import requests
+from openai import OpenAI
 
 from app.backends.base import HiiBackend
-from app.hii_contract import HiiScoreResponse, HII_OUTPUT_SCHEMA
-
-
-def _extract_text_from_responses_api(resp_json: dict) -> str:
-    parts: list[str] = []
-
-    for item in resp_json.get("output", []):
-        if item.get("type") != "message":
-            continue
-
-        for content_item in item.get("content", []):
-            ctype = content_item.get("type")
-            if ctype in ("output_text", "text"):
-                text = content_item.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-
-    if not parts:
-        raise ValueError(f"No text found in OpenAI response: {json.dumps(resp_json)[:2000]}")
-
-    return "\n".join(parts).strip()
+from app.hii_contract import HiiScoreResponse
+from app.hii_v2_contract import HiiPersonInput
+from app.prompts import build_hii_scorecards_prompt
 
 
 class OpenAIBackend(HiiBackend):
     def __init__(self) -> None:
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
             raise RuntimeError("OPENAI_API_KEY is not set")
 
+        self.client = OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o")
 
+        
+    # ---- v1 (keep old endpoint working) ----
     def score_name(self, name: str) -> HiiScoreResponse:
-        system_prompt = (
-            "You score people for a Human Impact Index (HII). "
-            "Be balanced and concise. Use broad historical/cultural/scientific/social impact."
+        # Reuse v2 path to avoid duplicate logic
+        result = self.score_v2([HiiPersonInput(name=name)])
+
+        if not result.get("people"):
+            raise RuntimeError("OpenAI returned no people in v2 response")
+
+        card = result["people"][0]
+
+        # Map v2 card -> old v1 response
+        return HiiScoreResponse(
+            name=card["name"],
+            score=card["hii_score"],
+            label=card["label"],
+            summary=card["summary"],
         )
 
-        user_prompt = f"Score this person for HII: {name}"
+    # ---- v2 (single + compare cards) ----
+    def score_v2(self, people: List[HiiPersonInput]) -> Dict[str, Any]:
+        prompt = build_hii_scorecards_prompt(people)
 
-        payload = {
-            "model": self.model,
-            "input": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "hii_score",
-                    "strict": True,
-                    "schema": HII_OUTPUT_SCHEMA,
-                }
-            },
-        }
-
-        r = requests.post(
-            "https://api.openai.com/v1/responses",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=60,
-        )
+        raw_text = self._call_openai_text(prompt)
 
         try:
-            r.raise_for_status()
-        except requests.HTTPError as e:
-            raise RuntimeError(f"OpenAI API error: {r.status_code} {r.text}") from e
-
-        text = _extract_text_from_responses_api(r.json())
-
-        try:
-            parsed = json.loads(text)
+            data = json.loads(raw_text)
         except json.JSONDecodeError as e:
-            raise RuntimeError(f"Model returned non-JSON text: {text}") from e
+            cleaned = self._extract_first_json_object(raw_text)
+            if cleaned is None:
+                raise RuntimeError(f"OpenAI returned invalid JSON: {e}\nRAW:\n{raw_text}")
+            try:
+                data = json.loads(cleaned)
+            except json.JSONDecodeError as e2:
+                raise RuntimeError(f"OpenAI returned invalid JSON even after cleanup: {e2}\nRAW:\n{raw_text}")
 
-        return HiiScoreResponse.model_validate(parsed)
+        return data
+
+    def _call_openai_text(self, prompt: str) -> str:
+        """
+        Calls OpenAI Responses API and returns plain text output.
+        Keeps output short/predictable for JSON responses.
+        """
+        resp = self.client.responses.create(
+            model=self.model,
+            input=prompt,
+            temperature=0.2,  # low randomness helps JSON consistency
+        )
+
+        # Robust text extraction for Responses API
+        text = getattr(resp, "output_text", None)
+        if text:
+            return text.strip()
+
+        # Fallback extraction if SDK shape differs
+        try:
+            parts: List[str] = []
+            for item in resp.output:
+                if getattr(item, "type", None) != "message":
+                    continue
+                for c in getattr(item, "content", []):
+                    if getattr(c, "type", None) in ("output_text", "text"):
+                        t = getattr(c, "text", None)
+                        if t:
+                            parts.append(t)
+            joined = "\n".join(parts).strip()
+            if joined:
+                return joined
+        except Exception:
+            pass
+
+        raise RuntimeError(f"Could not extract text from OpenAI response: {resp}")
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> str | None:
+        """
+        Best-effort extractor for the first top-level JSON object.
+        Useful if the model wraps JSON in code fences or extra text.
+        """
+        if not text:
+            return None
+
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_str = False
+        escape = False
+
+        for i in range(start, len(text)):
+            ch = text[i]
+
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+                continue
+
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+
+        return None

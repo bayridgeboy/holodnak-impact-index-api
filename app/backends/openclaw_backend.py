@@ -1,99 +1,134 @@
+# app/backends/openclaw_backend.py
+
 import json
 import os
-import re
-import shlex
 import subprocess
+from typing import Any, Dict, List
 
 from app.backends.base import HiiBackend
 from app.hii_contract import HiiScoreResponse
-
-
-def _extract_json_object(text: str) -> dict:
-    text = text.strip()
-
-    # Try direct parse first
-    try:
-        data = json.loads(text)
-        if isinstance(data, dict):
-            return data
-    except json.JSONDecodeError:
-        pass
-
-    # Fallback: extract first JSON object from noisy CLI output
-    m = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if not m:
-        raise RuntimeError(f"OpenClaw output did not contain JSON:\n{text[:2000]}")
-    return json.loads(m.group(0))
+from app.hii_v2_contract import HiiPersonInput
+from app.prompts import build_hii_scorecards_prompt
 
 
 class OpenClawBackend(HiiBackend):
-    """
-    Calls OpenClaw CLI as a subprocess.
-
-    Important:
-    - Do NOT pass --model here (openclaw agent doesn't support it).
-    - Model must be configured in OpenClaw itself (models set ...).
-    """
-
     def __init__(self) -> None:
+        # Optional knobs; keep defaults sane
         self.profile = os.getenv("OPENCLAW_PROFILE", "hii")
-
-        # Force a sane default so we always pass --agent main unless overridden
         self.agent = os.getenv("OPENCLAW_AGENT", "main")
-
-        self.session_id = os.getenv("OPENCLAW_SESSION_ID")  # optional
-        self.use_local = os.getenv("OPENCLAW_LOCAL", "true").lower() == "true"
+        self.local = os.getenv("OPENCLAW_LOCAL", "true").lower() == "true"
         self.thinking = os.getenv("OPENCLAW_THINKING", "low")
+        self.timeout_seconds = int(os.getenv("OPENCLAW_TIMEOUT_SECONDS", "240"))
 
-        # Optional exact command override if CLI syntax differs
-        # Example: OPENCLAW_CMD="openclaw --profile hii --no-color agent"
-        self.cmd_override = os.getenv("OPENCLAW_CMD")
-
+    # ---- v1 (keep old endpoint working) ----
     def score_name(self, name: str) -> HiiScoreResponse:
-        system_prompt = (
-            "You score people for a Human Impact Index (HII). "
-            "Return ONLY valid JSON with exactly these keys: "
-            "name, score, label, summary. "
-            "score must be integer 0..100. "
-            "label must be one of: very_low, low, medium, high, very_high. "
-            "summary must be 1-2 sentences. No markdown, no extra text."
+        # Reuse v2 path so all scoring logic lives in one place
+        result = self.score_v2([HiiPersonInput(name=name)])
+
+        if not result.get("people"):
+            raise RuntimeError("OpenClaw returned no people in v2 response")
+
+        card = result["people"][0]
+
+        # Map v2 card -> old v1 response
+        return HiiScoreResponse(
+            name=card["name"],
+            score=card["hii_score"],
+            label=card["label"],
+            summary=card["summary"],
         )
-        user_prompt = f"Score this person for HII: {name}"
-        message = f"{system_prompt}\n\n{user_prompt}"
 
-        if self.cmd_override:
-            cmd = shlex.split(self.cmd_override)
-        else:
-            # Global flags first, then subcommand
-            cmd = ["openclaw", "--profile", self.profile, "--no-color", "agent"]
+    # ---- v2 (single + compare cards) ----
+    def score_v2(self, people: List[HiiPersonInput]) -> Dict[str, Any]:
+        prompt = build_hii_scorecards_prompt(people)
+        raw_text = self._call_openclaw_text(prompt)
 
-        cmd += ["--message", message]
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError as e:
+            # OpenClaw/model may sometimes return extra text around JSON
+            cleaned = self._extract_first_json_object(raw_text)
+            if cleaned is None:
+                raise RuntimeError(f"OpenClaw returned invalid JSON: {e}\nRAW:\n{raw_text}")
+            try:
+                data = json.loads(cleaned)
+            except json.JSONDecodeError as e2:
+                raise RuntimeError(f"OpenClaw returned invalid JSON even after cleanup: {e2}\nRAW:\n{raw_text}")
 
-        # DO NOT pass --model here (unsupported by `openclaw agent`)
-        if self.agent:
-            cmd += ["--agent", self.agent]
-        if self.session_id:
-            cmd += ["--session-id", self.session_id]
-        if self.use_local:
-            cmd += ["--local"]
+        return data
+
+    def _call_openclaw_text(self, prompt: str) -> str:
+        cmd = [
+            "openclaw",
+            "--profile",
+            self.profile,
+            "--no-color",
+            "agent",
+            "--message",
+            prompt,
+            "--agent",
+            self.agent,
+        ]
+
+        if self.local:
+            cmd.append("--local")
+
         if self.thinking:
-            cmd += ["--thinking", self.thinking]
+            cmd.extend(["--thinking", self.thinking])
 
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
-            check=False,
+            timeout=self.timeout_seconds,
         )
 
         if proc.returncode != 0:
             raise RuntimeError(
                 f"OpenClaw failed (exit {proc.returncode})\n"
-                f"CMD: {' '.join(shlex.quote(x) for x in cmd)}\n"
+                f"CMD: {' '.join(cmd)}\n"
                 f"STDOUT:\n{proc.stdout}\n"
                 f"STDERR:\n{proc.stderr}"
             )
 
-        parsed = _extract_json_object(proc.stdout)
-        return HiiScoreResponse.model_validate(parsed)
+        return (proc.stdout or "").strip()
+
+    @staticmethod
+    def _extract_first_json_object(text: str) -> str | None:
+        """
+        Best-effort extractor for the first top-level JSON object.
+        Useful if the model wraps JSON in chatter or code fences.
+        """
+        if not text:
+            return None
+
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_str = False
+        escape = False
+
+        for i in range(start, len(text)):
+            ch = text[i]
+
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+                continue
+
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+
+        return None
