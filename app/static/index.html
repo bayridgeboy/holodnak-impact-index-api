@@ -26,7 +26,20 @@
     .status { color:#111; }
     .status.error { color:#b00020; }
 
-    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    .cards {
+  display: grid;
+  grid-auto-flow: column;                 /* keep columns in one row */
+  grid-auto-columns: minmax(320px, 1fr);  /* cards are at least 320px */
+  gap: 12px;
+
+  overflow-x: auto;                       /* horizontal scroll instead of wrapping */
+  overflow-y: hidden;
+  padding-bottom: 8px;                    /* space for scrollbar */
+  -webkit-overflow-scrolling: touch;      /* smoother scroll on iOS */
+}
+  @media (max-width: 1100px) {
+  .cards { grid-auto-columns: minmax(280px, 1fr); }
+ }
     .card { border:1px solid var(--b); background:#fff; border-radius: 16px; padding: 14px; }
     .name { font-weight: 800; font-size: 18px; margin-bottom: 6px; }
     .pill { display:inline-block; padding: 3px 10px; border:1px solid var(--b); border-radius: 999px; font-size: 12px; margin-right: 6px; color:#222; background:#fff; }
@@ -66,7 +79,7 @@
     </div>
 
     <div class="panel" style="margin-top:14px;">
-      <textarea id="names" placeholder="Alexander Belikoff"></textarea>
+      <textarea id="names" placeholder="Stas Holodnak"></textarea>
       <div class="hint">
         <div>Comma or newline separated. Max 3.</div>
         <div>Industry · Impact · Totem · Fun + alternates</div>
@@ -240,7 +253,7 @@
   };
 
   $("demo").onclick = () => {
-    $("names").value = "Alexander Belikoff";
+    $("names").value = "Stas Holodnak";
   };
 })();
 </script>
