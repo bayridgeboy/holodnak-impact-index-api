@@ -1,0 +1,12 @@
+[
+  { "name": "James Bond", "description": "Fictional British spy (Agent 007) from Ian Fleming’s novels and film franchise." },
+  { "name": "Albert Einstein", "description": "Physicist known for relativity and transforming modern physics." },
+  { "name": "Marie Curie", "description": "Pioneer of radioactivity; first person to win two Nobel Prizes in different sciences." },
+  { "name": "Ada Lovelace", "description": "Early computing pioneer; wrote influential notes on the Analytical Engine." },
+  { "name": "Nelson Mandela", "description": "Anti-apartheid leader and South Africa’s first Black president." },
+  { "name": "Steve Jobs", "description": "Apple co-founder who helped popularize personal computing and modern consumer tech." },
+  { "name": "Serena Williams", "description": "Tennis champion with major impact on the sport and cultural visibility." },
+  { "name": "William Shakespeare", "description": "English playwright and poet whose works shaped literature and language." },
+  { "name": "Martin Luther King Jr.", "description": "Civil rights leader who advanced nonviolent protest and U.S. civil rights progress." },
+  { "name": "Leonardo da Vinci", "description": "Renaissance artist and inventor with lasting influence in art, science, and engineering." }
+]

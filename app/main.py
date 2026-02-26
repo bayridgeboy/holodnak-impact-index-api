@@ -1,94 +1,65 @@
-import os
-import re
-from fastapi.responses import FileResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from typing import Union
+from pathlib import Path
+import os
 
-from fastapi import FastAPI, HTTPException
-
-from app.hii_contract import HiiScoreRequest, HiiScoreResponse
-from app.hii_v2_contract import HiiRequestV2, HiiNeedInputResponse, HiiOkResponse
-from app.hii_logic import needs_one_followup, followup_question
-from app.backends.base import HiiBackend
+from app.ui_contract import HiiRequest, HiiOk, HiiCard, Source, AlternateMatch
 from app.backends.openai_backend import OpenAIBackend
-from app.backends.openclaw_backend import OpenClawBackend
 
-app = FastAPI(title="Holodnak Impact Index API", version="0.3.0")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app = FastAPI()
 
-@app.get("/")
-def index():
-    return FileResponse("app/static/index.html")
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
-def _looks_placeholder(s: str | None) -> bool:
-    if not s:
-        return True
-    t = s.strip().lower()
+_backend = None
 
-    # obvious placeholders / templates
-    if any(x in t for x in ["<", ">", "tbd", "todo", "known for x", "contribution to x"]):
-        return True
-
-    # too short to be meaningful
-    if len(t) < 12:
-        return True
-
-    # "X" as a stand-in (common in drafts)
-    if re.search(r"\bknown for\s+x\b", t) or re.search(r"\bfor x\b", t):
-        return True
-
-    return False
-
-def get_backend() -> HiiBackend:
-    backend_name = os.getenv("HII_BACKEND", "openai").lower()
-
-    if backend_name == "openai":
-        return OpenAIBackend()
-    if backend_name == "openclaw":
-        return OpenClawBackend()
-
-    raise RuntimeError(f"Unsupported HII_BACKEND: {backend_name}")
-
+def get_backend() -> OpenAIBackend:
+    global _backend
+    if _backend is None:
+        _backend = OpenAIBackend()
+    return _backend
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok",
-        "backend": os.getenv("HII_BACKEND", "openai"),
-        "openclaw_agent": os.getenv("OPENCLAW_AGENT", ""),
-    }
+    return {"status": "ok", "backend": os.getenv("HII_BACKEND", "openai")}
 
+@app.post("/hii", response_model=HiiOk)
+def hii(req: HiiRequest):
+    # Always return cards immediately using OpenAI web search
+    backend = get_backend()
 
-@app.post("/score", response_model=HiiScoreResponse)
-def score(req: HiiScoreRequest):
-    try:
-        backend = get_backend()
-        return backend.score_name(req.name)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    people_payload = [
+        {"name": p.name, "description": p.description, "selected_url": p.selected_url}
+        for p in req.people
+    ]
 
+    data = backend.score_ui_cards(people_payload)
+    cards_raw = data.get("cards") or []
 
-@app.post("/hii", response_model=Union[HiiNeedInputResponse, HiiOkResponse])
-def hii(req: HiiRequestV2):
-    try:
-        # One-follow-up rule: if we don't have enough info, ask exactly one simple question
-        missing = [p.name for p in req.people if _looks_placeholder(p.description)]
+    cards = []
+    for c in cards_raw:
+        sources = [Source(**s) for s in (c.get("sources") or [])[:3] if isinstance(s, dict) and s.get("url")]
+        alternates = [AlternateMatch(**a) for a in (c.get("alternates") or [])[:3] if isinstance(a, dict) and a.get("url")]
 
-        # One-follow-up rule: if we don't have enough info, ask exactly one simple question
-        if needs_one_followup(req.people) or missing:
-            return HiiNeedInputResponse(
-                status="needs_input",
-                question=followup_question(),
-                names=missing if missing else [p.name for p in req.people],
-            )
+        clarify = c.get("clarify_question")
+        if not clarify:
+            clarify = f"If you meant a different {c.get('name','this person')}, pick another match below or paste one line and I’ll rescore."
 
-        backend = get_backend()
-        result = backend.score_v2(req.people)
+        card = HiiCard(
+            person_id=c.get("person_id", ""),
+            name=c.get("name", ""),
+            industry=c.get("industry", "Unknown"),
+            industry_impact=int(c.get("industry_impact", 60)),
+            totem=str(c.get("totem", "raccoon")),
+            funny=list(c.get("funny") or [])[:2],
+            defense=list(c.get("defense") or [])[:3],
+            confidence=c.get("confidence", "low"),
+            sources=sources,
+            alternates=alternates,
+            clarify_question=clarify,
+        )
+        cards.append(card)
 
-        # Safety net in case model forgets disclaimer
-        if "disclaimer" not in result or not result.get("disclaimer"):
-            result["disclaimer"] = "Playful heuristic based on limited input."
+    return HiiOk(rubric_version=req.rubric_version, cards=cards, image_url=None)
 
-        return HiiOkResponse(**result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

@@ -2,193 +2,247 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Holodnak Impact Index</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HII</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 900px; }
-    h1 { margin: 0 0 8px; }
-    .muted { color: #666; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 12px 0; }
-    .person { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
-    label { font-size: 12px; color: #444; display:block; margin-bottom: 4px; }
-    input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
-    textarea { min-height: 60px; resize: vertical; }
-    .controls { display:flex; gap: 12px; align-items:center; margin: 12px 0; }
-    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 600; }
-    button:disabled { opacity: .6; cursor: not-allowed; }
-    .cards { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 14px; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
-    .score { font-size: 28px; font-weight: 800; }
-    .pill { display:inline-block; padding: 3px 8px; border: 1px solid #ccc; border-radius: 999px; font-size: 12px; margin-left: 8px; }
-    .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-    .k { font-size: 12px; color:#666; }
-    .v { font-size: 16px; font-weight: 700; }
-    .error { color: #b00020; white-space: pre-wrap; margin-top: 10px; }
-    .ref { margin-top: 10px; padding: 10px; border-left: 4px solid #ddd; background: #fafafa; }
+    :root { --b:#e7e7e7; --m:#666; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #fafafa; }
+    .wrap { max-width: 980px; margin: 28px auto; padding: 0 16px; }
+    .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap: 12px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -0.3px; }
+    .sub { color: var(--m); margin-top: 6px; }
+
+    .panel { background:#fff; border:1px solid var(--b); border-radius: 14px; padding: 14px; }
+    .panel + .panel { margin-top: 12px; }
+
+    .controls { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+    .controls input[type="text"] { padding: 10px 10px; border:1px solid var(--b); border-radius: 10px; }
+    .btn { padding: 10px 14px; border:1px solid #111; background:#111; color:#fff; border-radius: 12px; cursor:pointer; }
+    .btn.secondary { background:#fff; color:#111; }
+
+    textarea { width: 100%; height: 90px; padding: 12px; border:1px solid var(--b); border-radius: 14px; resize: vertical; font-size: 14px; }
+    .hint { color: var(--m); font-size: 13px; margin-top: 8px; display:flex; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+
+    .status { color:#111; }
+    .status.error { color:#b00020; }
+
+    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    .card { border:1px solid var(--b); background:#fff; border-radius: 16px; padding: 14px; }
+    .name { font-weight: 800; font-size: 18px; margin-bottom: 6px; }
+    .pill { display:inline-block; padding: 3px 10px; border:1px solid var(--b); border-radius: 999px; font-size: 12px; margin-right: 6px; color:#222; background:#fff; }
+    .score { font-size: 40px; font-weight: 900; margin: 8px 0 2px; letter-spacing: -0.6px; }
+    ul { margin: 6px 0 0 18px; padding: 0; }
+    li { margin: 3px 0; }
+
+    .clarify { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; }
+    .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+    .clarify input { padding: 10px; border:1px solid var(--b); border-radius: 10px; flex: 1; min-width: 260px; }
+
+    .alts { margin-top: 10px; }
+    .alt { border:1px solid var(--b); border-radius: 12px; padding: 10px; margin-top: 8px; background:#fff; }
+    .alt .t { font-weight: 700; }
+    .alt .s { color: var(--m); font-size: 13px; margin-top: 4px; }
+
+    details { margin-top: 10px; }
+    pre { overflow:auto; background:#0b0b0b; color:#f2f2f2; padding: 12px; border-radius: 12px; border: 1px solid #222; }
+    a { color: #0b57d0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
-<body>
-  <h1>Holodnak Impact Index</h1>
-  <div class="muted">Enter 1–3 people. If you leave descriptions blank, the API will ask for one-line blurbs.</div>
 
-  <div class="controls">
-    <button id="addBtn">+ Add person</button>
-    <button id="runBtn">Run HII</button>
-    <label style="display:flex; align-items:center; gap:8px; margin:0;">
-      <input id="hotTake" type="checkbox" checked />
-      hot_take
-    </label>
-    <span id="status" class="muted"></span>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>HII</h1>
+        <div class="sub">Card first. Corrections optional.</div>
+      </div>
+
+      <div class="controls">
+        <label>Rubric <input id="rubric" type="text" value="impact_v1" /></label>
+        <button id="go" class="btn">Generate</button>
+        <button id="demo" class="btn secondary">Demo</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;">
+      <textarea id="names" placeholder="Alexander Belikoff"></textarea>
+      <div class="hint">
+        <div>Comma or newline separated. Max 3.</div>
+        <div>Industry · Impact · Totem · Fun + alternates</div>
+      </div>
+    </div>
+
+    <div id="statusPanel" class="panel" style="display:none;">
+      <div id="status" class="status"></div>
+    </div>
+
+    <div id="resultsPanel" class="panel" style="display:none;">
+      <div id="cards" class="cards"></div>
+
+      <details>
+        <summary>Debug JSON (last response)</summary>
+        <pre id="debug"></pre>
+      </details>
+    </div>
   </div>
 
-  <div id="people"></div>
-
-  <div id="result"></div>
-  <div id="error" class="error"></div>
-
 <script>
-  const peopleEl = document.getElementById('people');
-  const resultEl = document.getElementById('result');
-  const errorEl = document.getElementById('error');
-  const statusEl = document.getElementById('status');
-  const runBtn = document.getElementById('runBtn');
-  const addBtn = document.getElementById('addBtn');
-  const hotTakeEl = document.getElementById('hotTake');
+(() => {
+  const $ = (id) => document.getElementById(id);
 
-  let people = [
-    { name: "Alexander Belikoff", description: "" },
-    { name: "Stas Holodnak", description: "" }
-  ];
+  const state = { people: [], lastResponse: null };
 
-  function renderPeople(highlightMissingNames = []) {
-    peopleEl.innerHTML = "";
-    people.forEach((p, idx) => {
-      const div = document.createElement('div');
-      div.className = 'person';
+  function parseNames(text) {
+    return text
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  }
 
-      const isMissing = highlightMissingNames.includes(p.name);
+  function show(el, on=true) { el.style.display = on ? "block" : "none"; }
 
-      div.innerHTML = `
-        <div class="row">
-          <div>
-            <label>Name</label>
-            <input data-field="name" data-idx="${idx}" value="${escapeHtml(p.name)}" />
+  function setStatus(msg, isError=false) {
+    show($("statusPanel"), true);
+    const el = $("status");
+    el.textContent = msg;
+    el.className = "status" + (isError ? " error" : "");
+  }
+
+  async function postHii() {
+    const payload = {
+      people: state.people,
+      rubric_version: $("rubric").value || "impact_v1",
+      refresh: false
+    };
+
+    setStatus("Calling /hii …");
+    const res = await fetch("/hii", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { status: "bad_json", raw: text }; }
+
+    state.lastResponse = data;
+    $("debug").textContent = JSON.stringify(data, null, 2);
+    show($("resultsPanel"), true);
+
+    if (!res.ok || data.status !== "ok") {
+      setStatus(`Backend error / unexpected response (see Debug JSON)`, true);
+      return;
+    }
+
+    setStatus("OK ✅");
+    renderCards(data.cards || []);
+  }
+
+  function renderCards(cards) {
+    const wrap = $("cards");
+    wrap.innerHTML = "";
+
+    // keep stable people list for rescore
+    state.people = cards.map(c => ({
+      name: c.name,
+      person_id: c.person_id
+    }));
+
+    cards.forEach((c, idx) => {
+      const funny = (c.funny || []).slice(0, 2).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      const defense = (c.defense || []).slice(0, 3).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+
+      const src = (c.sources || []).slice(0,3).map(s =>
+        `<li><a href="${escapeAttr(s.url)}" target="_blank" rel="noreferrer">${escapeHtml(s.title || s.url)}</a></li>`
+      ).join("");
+
+      const alts = (c.alternates || []).slice(0,3).map((a, j) => `
+        <div class="alt">
+          <label class="row" style="gap:8px; align-items:flex-start;">
+            <input type="radio" name="alt_${idx}" value="${escapeAttr(a.url)}" ${j===0 ? "checked" : ""}/>
+            <div>
+              <div class="t">${escapeHtml(a.display || a.url)}</div>
+              ${a.snippet ? `<div class="s">${escapeHtml(a.snippet)}</div>` : ""}
+              <div class="s"><a href="${escapeAttr(a.url)}" target="_blank" rel="noreferrer">${escapeHtml(a.url)}</a></div>
+            </div>
+          </label>
+        </div>
+      `).join("");
+
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `
+        <div class="name">${escapeHtml(c.name || "")}</div>
+        <div><span class="pill">Industry</span>${escapeHtml(c.industry || "")}</div>
+        <div class="score">${Number(c.industry_impact ?? 0)}/100</div>
+        <div><span class="pill">Totem</span>${escapeHtml(c.totem || "")}</div>
+
+        ${funny ? `<div style="margin-top:10px;"><b>Fun</b><ul>${funny}</ul></div>` : ""}
+        ${defense ? `<div style="margin-top:10px;"><b>Defense</b><ul>${defense}</ul></div>` : ""}
+        <div style="margin-top:10px; color:#666;">Confidence: ${escapeHtml(c.confidence || "")}</div>
+
+        ${src ? `<div style="margin-top:10px;"><b>Sources</b><ul>${src}</ul></div>` : ""}
+
+        <div class="clarify">
+          <div><b>${escapeHtml(c.clarify_question || ("If you meant a different " + (c.name||"person") + ", pick another match or paste one line."))}</b></div>
+
+          <div class="alts">
+            <div style="margin-top:10px;"><b>Top matches</b></div>
+            ${alts || `<div class="s" style="margin-top:8px;">(No alternates returned)</div>`}
           </div>
-          <div>
-            <label>Description (one short line)</label>
-            <textarea data-field="description" data-idx="${idx}" placeholder="e.g., Software engineer; built high-volume data systems.">${escapeHtml(p.description || "")}</textarea>
-            ${isMissing ? `<div class="error" style="margin:6px 0 0;">Please add a 1-line description for ${escapeHtml(p.name)}.</div>` : ``}
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button data-action="remove" data-idx="${idx}" ${people.length<=1 ? "disabled":""}>Remove</button>
+
+          <div class="row" style="margin-top:12px;">
+            <input id="desc_${idx}" type="text" placeholder="One line: role/domain/company (optional)" />
+            <button class="btn" id="rescore_${idx}">Rescore</button>
           </div>
         </div>
       `;
-      peopleEl.appendChild(div);
+      wrap.appendChild(el);
+
+      el.querySelector(`#rescore_${idx}`).onclick = async () => {
+        const desc = el.querySelector(`#desc_${idx}`).value.trim();
+        const pickedUrl = el.querySelector(`input[name="alt_${idx}"]:checked`)?.value;
+
+        state.people[idx].description = desc || null;
+        state.people[idx].selected_url = pickedUrl || null;
+
+        await postHii();
+      };
     });
   }
 
   function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
-    }[c]));
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  function escapeAttr(s) {
+    return String(s).replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
-  peopleEl.addEventListener('input', (e) => {
-    const field = e.target.getAttribute('data-field');
-    const idx = parseInt(e.target.getAttribute('data-idx'), 10);
-    if (!field || Number.isNaN(idx)) return;
-    people[idx][field] = e.target.value;
-  });
-
-  peopleEl.addEventListener('click', (e) => {
-    const action = e.target.getAttribute('data-action');
-    const idx = parseInt(e.target.getAttribute('data-idx'), 10);
-    if (action === "remove" && !Number.isNaN(idx) && people.length > 1) {
-      people.splice(idx, 1);
-      renderPeople();
+  $("go").onclick = async () => {
+    const names = parseNames($("names").value);
+    if (names.length === 0) {
+      setStatus("Enter at least one name.", true);
+      show($("resultsPanel"), true);
+      return;
     }
-  });
 
-  addBtn.addEventListener('click', () => {
-    if (people.length >= 3) return;
-    people.push({ name: "", description: "" });
-    renderPeople();
-  });
+    state.people = names.map(n => ({ name: n }));
+    show($("resultsPanel"), true);
+    await postHii();
+  };
 
-  async function run() {
-    errorEl.textContent = "";
-    resultEl.innerHTML = "";
-    statusEl.textContent = "";
-    runBtn.disabled = true;
-
-    const payload = {
-      people: people.map(p => ({
-        name: (p.name || "").trim(),
-        description: (p.description || "").trim() || null
-      })),
-      hot_take: !!hotTakeEl.checked
-    };
-
-    statusEl.textContent = "Calling /hii ...";
-
-    try {
-      const res = await fetch("/hii", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(JSON.stringify(data, null, 2));
-      }
-
-      if (data.status === "needs_input") {
-        statusEl.textContent = "Needs input.";
-        renderPeople(data.names || []);
-        errorEl.textContent = data.question || "Need more input.";
-        return;
-      }
-
-      statusEl.textContent = "OK";
-      renderResult(data);
-    } catch (err) {
-      statusEl.textContent = "";
-      errorEl.textContent = String(err);
-    } finally {
-      runBtn.disabled = false;
-    }
-  }
-
-  function renderResult(data) {
-    const cards = (data.people || []).map(p => `
-      <div class="card">
-        <div>
-          <span class="score">${p.hii_score}</span>
-          <span class="pill">${p.label}</span>
-          <span class="pill">${p.tier}</span>
-        </div>
-        <div class="grid3">
-          <div><div class="k">scale</div><div class="v">${p.subscores?.scale ?? ""}</div></div>
-          <div><div class="k">recognition</div><div class="v">${p.subscores?.recognition ?? ""}</div></div>
-          <div><div class="k">legacy</div><div class="v">${p.subscores?.legacy ?? ""}</div></div>
-        </div>
-        <div style="margin-top:10px;"><b>Summary:</b> ${escapeHtml(p.summary || "")}</div>
-        ${p.hot_take ? `<div style="margin-top:6px;"><b>Hot take:</b> ${escapeHtml(p.hot_take)}</div>` : ``}
-      </div>
-    `).join("");
-
-    const ref = data.referee ? `<div class="ref"><b>Referee:</b> ${escapeHtml(data.referee)}</div>` : "";
-    const disc = data.disclaimer ? `<div class="muted" style="margin-top:10px;">${escapeHtml(data.disclaimer)}</div>` : "";
-
-    resultEl.innerHTML = `<div class="cards">${cards}</div>${ref}${disc}`;
-  }
-
-  runBtn.addEventListener('click', run);
-
-  renderPeople();
+  $("demo").onclick = () => {
+    $("names").value = "Alexander Belikoff";
+  };
+})();
 </script>
 </body>
 </html>
