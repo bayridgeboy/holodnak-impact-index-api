@@ -8,6 +8,11 @@ The app supports:
 - Industry impact score (`0-100`)
 - Totem, Hot Take, Defense bullets, confidence, sources, and alternate matches
 
+## Feedback & Contributions
+
+- Issues: https://github.com/bayridgeboy/holodnak-impact-index-api/issues
+- Pull requests: https://github.com/bayridgeboy/holodnak-impact-index-api/pulls
+
 ## Tech Stack
 
 - FastAPI backend
