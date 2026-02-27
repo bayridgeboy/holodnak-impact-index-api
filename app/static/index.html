@@ -5,19 +5,27 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HII</title>
   <style>
-    :root { --b:#e7e7e7; --m:#666; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #fafafa; }
+    :root {
+      --bg: #F6F8FC;
+      --b: #D9E2F2;
+      --m: #5B6475;
+      --primary: #1F3A8A;
+      --primary-hover: #1D4ED8;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: var(--bg); }
     .wrap { max-width: 980px; margin: 28px auto; padding: 0 16px; }
     .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap: 12px; flex-wrap: wrap; }
     h1 { margin: 0; font-size: 28px; letter-spacing: -0.3px; }
     .sub { color: var(--m); margin-top: 6px; }
+    .about { color: var(--m); margin-top: 8px; font-size: 14px; line-height: 1.4; }
+    .contact-email { color: var(--primary); font-weight: 600; }
 
     .panel { background:#fff; border:1px solid var(--b); border-radius: 14px; padding: 14px; }
     .panel + .panel { margin-top: 12px; }
 
     .controls { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
-    .controls input[type="text"] { padding: 10px 10px; border:1px solid var(--b); border-radius: 10px; }
-    .btn { padding: 10px 14px; border:1px solid #111; background:#111; color:#fff; border-radius: 12px; cursor:pointer; }
+    .btn { padding: 10px 14px; border:1px solid var(--primary); background:var(--primary); color:#fff; border-radius: 12px; cursor:pointer; }
+    .btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
     .btn.secondary { background:#fff; color:#111; }
 
     textarea { width: 100%; height: 90px; padding: 12px; border:1px solid var(--b); border-radius: 14px; resize: vertical; font-size: 14px; }
@@ -43,7 +51,8 @@
     .card { border:1px solid var(--b); background:#fff; border-radius: 16px; padding: 14px; }
     .name { font-weight: 800; font-size: 18px; margin-bottom: 6px; }
     .pill { display:inline-block; padding: 3px 10px; border:1px solid var(--b); border-radius: 999px; font-size: 12px; margin-right: 6px; color:#222; background:#fff; }
-    .score { font-size: 40px; font-weight: 900; margin: 8px 0 2px; letter-spacing: -0.6px; }
+    .score { font-size: 40px; font-weight: 900; margin: 8px 0 2px; letter-spacing: -0.6px; color: var(--primary); }
+    .totem-icon { font-size: 22px; vertical-align: middle; }
     ul { margin: 6px 0 0 18px; padding: 0; }
     li { margin: 3px 0; }
 
@@ -58,7 +67,7 @@
 
     details { margin-top: 10px; }
     pre { overflow:auto; background:#0b0b0b; color:#f2f2f2; padding: 12px; border-radius: 12px; border: 1px solid #222; }
-    a { color: #0b57d0; text-decoration: none; }
+    a { color: var(--primary-hover); text-decoration: none; }
     a:hover { text-decoration: underline; }
   </style>
 </head>
@@ -69,12 +78,12 @@
       <div>
         <h1>HII</h1>
         <div class="sub">Card first. Corrections optional.</div>
+        <div class="about">HII is a quick, playful impact index that estimates domain influence from public signals, and lets you compare people side by side.</div>
+        <div class="about">Contact: <span class="contact-email">stasholodnak@gmail.com</span></div>
       </div>
 
       <div class="controls">
-        <label>Rubric <input id="rubric" type="text" value="impact_v1" /></label>
         <button id="go" class="btn">Generate</button>
-        <button id="demo" class="btn secondary">Demo</button>
       </div>
     </div>
 
@@ -82,7 +91,7 @@
       <textarea id="names" placeholder="Stas Holodnak"></textarea>
       <div class="hint">
         <div>Comma or newline separated. Max 3.</div>
-        <div>Industry · Impact · Totem · Fun + alternates</div>
+        <div>Industry · Impact · Totem · Hot Take + alternates</div>
       </div>
     </div>
 
@@ -93,7 +102,7 @@
     <div id="resultsPanel" class="panel" style="display:none;">
       <div id="cards" class="cards"></div>
 
-      <details>
+      <details id="debugPanel" style="display:none;">
         <summary>Debug JSON (last response)</summary>
         <pre id="debug"></pre>
       </details>
@@ -103,8 +112,149 @@
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  const isDevHost = ["localhost", "127.0.0.1"].includes(window.location.hostname) || window.location.hostname.endsWith(".local");
+  const debugParam = new URLSearchParams(window.location.search).get("debug");
+  const isDebugOverride = ["1", "true", "on"].includes(String(debugParam || "").toLowerCase());
+
+  if (isDevHost || isDebugOverride) {
+    show($("debugPanel"), true);
+  }
 
   const state = { people: [], lastResponse: null };
+
+  async function loadSeedPeople() {
+    try {
+      const res = await fetch("/seed_people.json", { cache: "no-store" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data.filter(p => p && typeof p.name === "string" && p.name.trim());
+    } catch {
+      return [];
+    }
+  }
+
+  function pickRandom(items) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const idx = Math.floor(Math.random() * items.length);
+    return items[idx] || null;
+  }
+
+  function inferIndustry(description) {
+    const d = String(description || "").toLowerCase();
+    if (/physic|science|radioactivity|inventor|engineering/.test(d)) return "Science";
+    if (/comput|tech|apple/.test(d)) return "Technology";
+    if (/leader|president|civil rights|anti-apartheid/.test(d)) return "Public Leadership";
+    if (/playwright|poet|literature|artist/.test(d)) return "Arts & Culture";
+    if (/tennis|sport/.test(d)) return "Sports";
+    return "General";
+  }
+
+  function normalizeImpact(value, fallback=78) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
+
+  function normalizeConfidence(value) {
+    return ["low", "medium", "high"].includes(value) ? value : "medium";
+  }
+
+  function cleanStringList(value, maxItems) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map(v => String(v || "").trim())
+      .filter(Boolean)
+      .slice(0, maxItems);
+  }
+
+  function cleanSources(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter(s => s && typeof s === "object")
+      .map(s => ({
+        title: String(s.title || s.url || "").trim(),
+        url: String(s.url || "").trim()
+      }))
+      .filter(s => s.url)
+      .slice(0, 3);
+  }
+
+  function cleanAlternates(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter(a => a && typeof a === "object")
+      .map(a => ({
+        display: String(a.display || a.url || "").trim(),
+        url: String(a.url || "").trim(),
+        snippet: String(a.snippet || "").trim() || null
+      }))
+      .filter(a => a.url)
+      .slice(0, 3);
+  }
+
+  function totemEmoji(totem) {
+    const raw = String(totem || "").trim();
+    if (/^[\u{1F300}-\u{1FAFF}]$/u.test(raw)) {
+      return raw;
+    }
+
+    const key = raw.toLowerCase();
+    const map = {
+      bear: "🐻",
+      elephant: "🐘",
+      owl: "🦉",
+      otter: "🦦",
+      heron: "🪶",
+      panther: "🐆",
+      lion: "🦁",
+      lioness: "🦁",
+      hawk: "🦅",
+      eagle: "🦅",
+      fox: "🦊",
+      wolf: "🐺",
+      raven: "🐦",
+      falcon: "🦅",
+      lynx: "🐱",
+      bison: "🐂",
+      raccoon: "🦝"
+    };
+    return map[key] || "🐾";
+  }
+
+  function toSampleCard(seed) {
+    const name = String(seed?.name || "Sample Person").trim();
+    const description = String(seed?.description || "Notable person from seed catalog.").trim();
+    const industry = String(seed?.industry || "").trim() || inferIndustry(description);
+    const funny = cleanStringList(seed?.funny, 2);
+    const defense = cleanStringList(seed?.defense, 3);
+    const sources = cleanSources(seed?.sources);
+    const alternates = cleanAlternates(seed?.alternates);
+    const bestUrl = String(seed?.best_url || "").trim();
+
+    return {
+      person_id: "seed_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40),
+      name,
+      industry,
+      industry_impact: normalizeImpact(seed?.industry_impact, 78),
+      totem: String(seed?.totem || "owl").trim() || "owl",
+      funny: funny.length ? funny : [
+        "This is a sample card from the seed list.",
+        "Search any name above for a live scored version."
+      ],
+      defense: defense.length ? defense : [
+        description,
+        "Displayed instantly from local seed data.",
+        "Use Generate to fetch a live evidence-based score."
+      ],
+      confidence: normalizeConfidence(seed?.confidence),
+      sources: sources.length
+        ? sources
+        : (bestUrl ? [{ title: "Reference", url: bestUrl }] : []),
+      alternates,
+      clarify_question: String(seed?.clarify_question || "").trim() || "Want a live card instead? Enter any name above and click Generate."
+    };
+  }
 
   function parseNames(text) {
     return text
@@ -126,7 +276,7 @@
   async function postHii() {
     const payload = {
       people: state.people,
-      rubric_version: $("rubric").value || "impact_v1",
+      rubric_version: "impact_v1",
       refresh: false
     };
 
@@ -142,7 +292,10 @@
     try { data = JSON.parse(text); } catch { data = { status: "bad_json", raw: text }; }
 
     state.lastResponse = data;
-    $("debug").textContent = JSON.stringify(data, null, 2);
+    const debugEl = $("debug");
+    if (debugEl) {
+      debugEl.textContent = JSON.stringify(data, null, 2);
+    }
     show($("resultsPanel"), true);
 
     if (!res.ok || data.status !== "ok") {
@@ -152,6 +305,23 @@
 
     setStatus("OK ✅");
     renderCards(data.cards || []);
+  }
+
+  async function loadInitialSeedCard() {
+    const seeds = await loadSeedPeople();
+    const picked = pickRandom(seeds);
+    if (!picked || !picked.name) {
+      return;
+    }
+
+    $("names").value = picked.name;
+    state.people = [{
+      name: picked.name,
+      description: typeof picked.description === "string" ? picked.description : null
+    }];
+
+    show($("resultsPanel"), true);
+    renderCards([toSampleCard(picked)]);
   }
 
   function renderCards(cards) {
@@ -191,9 +361,9 @@
         <div class="name">${escapeHtml(c.name || "")}</div>
         <div><span class="pill">Industry</span>${escapeHtml(c.industry || "")}</div>
         <div class="score">${Number(c.industry_impact ?? 0)}/100</div>
-        <div><span class="pill">Totem</span>${escapeHtml(c.totem || "")}</div>
+        <div><span class="pill">Totem</span><span class="totem-icon" title="${escapeAttr(c.totem || "totem")}">${totemEmoji(c.totem)}</span></div>
 
-        ${funny ? `<div style="margin-top:10px;"><b>Fun</b><ul>${funny}</ul></div>` : ""}
+        ${funny ? `<div style="margin-top:10px;"><b>Hot Take</b><ul>${funny}</ul></div>` : ""}
         ${defense ? `<div style="margin-top:10px;"><b>Defense</b><ul>${defense}</ul></div>` : ""}
         <div style="margin-top:10px; color:#666;">Confidence: ${escapeHtml(c.confidence || "")}</div>
 
@@ -252,9 +422,7 @@
     await postHii();
   };
 
-  $("demo").onclick = () => {
-    $("names").value = "Stas Holodnak";
-  };
+  loadInitialSeedCard();
 })();
 </script>
 </body>

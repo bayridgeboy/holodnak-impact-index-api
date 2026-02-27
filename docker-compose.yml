@@ -4,10 +4,10 @@ services:
     container_name: hii-api
     restart: unless-stopped
     ports:
-      - "80:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       HII_BACKEND: ${HII_BACKEND:-openai}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
       OPENAI_WEB_SEARCH: "true"
       OPENAI_WEB_SEARCH_REQUIRED: "true"

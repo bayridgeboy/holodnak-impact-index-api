@@ -1,12 +1,294 @@
 [
-  { "name": "James Bond", "description": "Fictional British spy (Agent 007) from Ian Fleming’s novels and film franchise." },
-  { "name": "Albert Einstein", "description": "Physicist known for relativity and transforming modern physics." },
-  { "name": "Marie Curie", "description": "Pioneer of radioactivity; first person to win two Nobel Prizes in different sciences." },
-  { "name": "Ada Lovelace", "description": "Early computing pioneer; wrote influential notes on the Analytical Engine." },
-  { "name": "Nelson Mandela", "description": "Anti-apartheid leader and South Africa’s first Black president." },
-  { "name": "Steve Jobs", "description": "Apple co-founder who helped popularize personal computing and modern consumer tech." },
-  { "name": "Serena Williams", "description": "Tennis champion with major impact on the sport and cultural visibility." },
-  { "name": "William Shakespeare", "description": "English playwright and poet whose works shaped literature and language." },
-  { "name": "Martin Luther King Jr.", "description": "Civil rights leader who advanced nonviolent protest and U.S. civil rights progress." },
-  { "name": "Leonardo da Vinci", "description": "Renaissance artist and inventor with lasting influence in art, science, and engineering." }
+  {
+    "name": "James Bond",
+    "description": "Fictional British spy (Agent 007) from Ian Fleming’s novels and film franchise.",
+    "best_url": "https://en.wikipedia.org/wiki/James_Bond",
+    "industry": "Entertainment",
+    "industry_impact": 74,
+    "totem": "panther",
+    "funny": [
+      "Turns every KPI into a mission briefing.",
+      "Risk management, but with better tailoring."
+    ],
+    "defense": [
+      "Globally recognized fictional archetype with durable cultural reach.",
+      "Influence spans books, film, and pop-culture references.",
+      "High visibility, moderate real-world industry relevance."
+    ],
+    "confidence": "medium",
+    "sources": [
+      {
+        "title": "James Bond - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/James_Bond"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Albert Einstein",
+    "description": "Physicist known for relativity and transforming modern physics.",
+    "best_url": "https://en.wikipedia.org/wiki/Albert_Einstein",
+    "industry": "Science",
+    "industry_impact": 97,
+    "totem": "owl",
+    "funny": [
+      "Made space-time feel like a product update.",
+      "Still setting the benchmark for thought experiments."
+    ],
+    "defense": [
+      "Core theories reshaped modern physics and engineering foundations.",
+      "Long-term influence across academia, technology, and culture.",
+      "Name recognition remains exceptionally strong globally."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Albert Einstein - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Albert_Einstein"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Marie Curie",
+    "description": "Pioneer of radioactivity; first person to win two Nobel Prizes in different sciences.",
+    "best_url": "https://en.wikipedia.org/wiki/Marie_Curie",
+    "industry": "Science",
+    "industry_impact": 96,
+    "totem": "lynx",
+    "funny": [
+      "Set the bar so high it glows.",
+      "Published results, then changed the syllabus for a century."
+    ],
+    "defense": [
+      "Groundbreaking work in radioactivity with lasting scientific impact.",
+      "Historic dual Nobel distinction across disciplines.",
+      "Enduring influence on medicine, physics, and research culture."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Marie Curie - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Marie_Curie"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Ada Lovelace",
+    "description": "Early computing pioneer; wrote influential notes on the Analytical Engine.",
+    "best_url": "https://en.wikipedia.org/wiki/Ada_Lovelace",
+    "industry": "Technology",
+    "industry_impact": 90,
+    "totem": "fox",
+    "funny": [
+      "Wrote software concepts before hardware had a chance.",
+      "Classic example of being early and still right."
+    ],
+    "defense": [
+      "Foundational conceptual contribution to programmable computation.",
+      "Strong symbolic and educational influence in computing history.",
+      "Frequently cited in modern software and AI discourse."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Ada Lovelace - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Ada_Lovelace"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Nelson Mandela",
+    "description": "Anti-apartheid leader and South Africa’s first Black president.",
+    "best_url": "https://en.wikipedia.org/wiki/Nelson_Mandela",
+    "industry": "Public Leadership",
+    "industry_impact": 95,
+    "totem": "elephant",
+    "funny": [
+      "Played the long game better than most quarterly planners.",
+      "Legacy mode: permanently enabled."
+    ],
+    "defense": [
+      "Led transformational political change with global resonance.",
+      "Represents reconciliation-centered leadership in modern history.",
+      "Sustained civic and institutional influence beyond tenure."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Nelson Mandela - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Nelson_Mandela"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Steve Jobs",
+    "description": "Apple co-founder who helped popularize personal computing and modern consumer tech.",
+    "best_url": "https://en.wikipedia.org/wiki/Steve_Jobs",
+    "industry": "Technology",
+    "industry_impact": 94,
+    "totem": "hawk",
+    "funny": [
+      "Turned product launches into major cultural events.",
+      "Proof that polish can be a strategy, not a phase."
+    ],
+    "defense": [
+      "Drove category-defining products in personal and mobile computing.",
+      "Major influence on design, UX expectations, and tech markets.",
+      "Long-tail impact across consumer and creator ecosystems."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Steve Jobs - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Steve_Jobs"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Serena Williams",
+    "description": "Tennis champion with major impact on the sport and cultural visibility.",
+    "best_url": "https://en.wikipedia.org/wiki/Serena_Williams",
+    "industry": "Sports",
+    "industry_impact": 92,
+    "totem": "lioness",
+    "funny": [
+      "Made dominance look repeatable.",
+      "Competitive edge shipped in production for years."
+    ],
+    "defense": [
+      "Historic competitive record and sustained elite performance.",
+      "High visibility influence across sports and culture.",
+      "Expanded expectations for athlete brand and leadership."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Serena Williams - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Serena_Williams"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "William Shakespeare",
+    "description": "English playwright and poet whose works shaped literature and language.",
+    "best_url": "https://en.wikipedia.org/wiki/William_Shakespeare",
+    "industry": "Arts & Culture",
+    "industry_impact": 96,
+    "totem": "raven",
+    "funny": [
+      "Still trending after a few quiet centuries.",
+      "Built reusable dialogue patterns before frameworks existed."
+    ],
+    "defense": [
+      "Canonical influence on global literature and theater.",
+      "Persistent linguistic impact in modern expression.",
+      "Works remain continuously adapted across media."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "William Shakespeare - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/William_Shakespeare"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Martin Luther King Jr.",
+    "description": "Civil rights leader who advanced nonviolent protest and U.S. civil rights progress.",
+    "best_url": "https://en.wikipedia.org/wiki/Martin_Luther_King_Jr.",
+    "industry": "Public Leadership",
+    "industry_impact": 95,
+    "totem": "bison",
+    "funny": [
+      "Set a leadership standard that still audits everyone.",
+      "Built movements with message clarity and moral force."
+    ],
+    "defense": [
+      "Central figure in civil rights movement with lasting policy impact.",
+      "Widely recognized model of nonviolent civic leadership.",
+      "Continuing influence on public discourse and education."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Martin Luther King Jr. - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Martin_Luther_King_Jr."
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Leonardo da Vinci",
+    "description": "Renaissance artist and inventor with lasting influence in art, science, and engineering.",
+    "best_url": "https://en.wikipedia.org/wiki/Leonardo_da_Vinci",
+    "industry": "Arts & Science",
+    "industry_impact": 95,
+    "totem": "eagle",
+    "funny": [
+      "Ran a multidisciplinary stack before it was fashionable.",
+      "Prototype mindset, five centuries ahead of roadmap."
+    ],
+    "defense": [
+      "Major contributions and influence across visual art and design.",
+      "Historic cross-domain curiosity shaped scientific imagination.",
+      "Longstanding global recognition and educational impact."
+    ],
+    "confidence": "high",
+    "sources": [
+      {
+        "title": "Leonardo da Vinci - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Leonardo_da_Vinci"
+      }
+    ],
+    "alternates": [],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  },
+  {
+    "name": "Stas Holodnak",
+    "description": "Founder/operator focused on practical AI products, shipping quickly, and applied impact over hype.",
+    "best_url": "https://www.google.com/search?q=Stas+Holodnak",
+    "industry": "AI & Software",
+    "industry_impact": 82,
+    "totem": "🐗",
+    "funny": [
+      "Ships before meetings can schedule themselves.",
+      "Treats vague ideas like bugs: reproduce, isolate, deploy."
+    ],
+    "defense": [
+      "Bias toward execution and product outcomes.",
+      "Focus on practical applied AI rather than theory theater.",
+      "Clear operator mindset across tools and infrastructure."
+    ],
+    "confidence": "medium",
+    "sources": [
+      {
+        "title": "Web results for Stas Holodnak",
+        "url": "https://www.google.com/search?q=Stas+Holodnak"
+      }
+    ],
+    "alternates": [
+      {
+        "display": "Stas Holondak (spelling variant)",
+        "url": "https://www.google.com/search?q=Stas+Holondak",
+        "snippet": "Possible alternate spelling; use Generate for live disambiguation."
+      }
+    ],
+    "clarify_question": "Want a live, sourced score card? Search above and click Generate."
+  }
 ]
