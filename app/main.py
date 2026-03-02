@@ -7,6 +7,9 @@ import os
 import re
 import time
 import logging
+import hashlib
+import json
+from typing import Dict, Tuple, Any
 from urllib.parse import urlparse
 
 from app.ui_contract import HiiRequest, HiiOk, HiiCard, Source, AlternateMatch
@@ -37,8 +40,14 @@ _backend = None
 MAX_REQUEST_BYTES = int(os.getenv("HII_MAX_REQUEST_BYTES", "32768"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("HII_RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_REQUESTS = int(os.getenv("HII_RATE_LIMIT_REQUESTS", "30"))
+CACHE_TTL_SECONDS = int(os.getenv("HII_CACHE_TTL_SECONDS", "3600"))  # 1 hour default
 
 _rate_buckets: dict[str, deque[float]] = defaultdict(deque)
+
+# Response cache: {cache_key: (response_data, expiration_timestamp)}
+_response_cache: Dict[str, Tuple[Any, float]] = {}
+_cache_hits = 0
+_cache_misses = 0
 
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
 
@@ -96,6 +105,44 @@ def _clean_confidence(value: object) -> str:
     return "low"
 
 
+def _make_cache_key(people_payload: list) -> str:
+    """Create a stable cache key from people payload."""
+    # Sort by name to handle different orderings
+    sorted_payload = sorted(people_payload, key=lambda p: p.get("name", "").lower())
+    cache_str = json.dumps(sorted_payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(cache_str.encode("utf-8")).hexdigest()[:16]
+
+
+def _get_cached_response(cache_key: str) -> Any | None:
+    """Get cached response if it exists and hasn't expired."""
+    global _cache_hits, _cache_misses
+    
+    if cache_key in _response_cache:
+        cached_data, expiration = _response_cache[cache_key]
+        if time.time() < expiration:
+            _cache_hits += 1
+            return cached_data
+        else:
+            # Expired, remove it
+            del _response_cache[cache_key]
+    
+    _cache_misses += 1
+    return None
+
+
+def _set_cached_response(cache_key: str, data: Any) -> None:
+    """Cache a response with TTL."""
+    expiration = time.time() + CACHE_TTL_SECONDS
+    _response_cache[cache_key] = (data, expiration)
+    
+    # Simple cleanup: remove expired entries if cache grows large
+    if len(_response_cache) > 1000:
+        now = time.time()
+        expired_keys = [k for k, (_, exp) in _response_cache.items() if exp < now]
+        for k in expired_keys:
+            del _response_cache[k]
+
+
 @app.middleware("http")
 async def abuse_guardrails(request: Request, call_next):
     if request.method == "POST" and request.url.path == "/hii":
@@ -133,13 +180,30 @@ def get_backend() -> OpenAIBackend:
 def health():
     return {"status": "ok", "backend": os.getenv("HII_BACKEND", "openai")}
 
+@app.get("/cache-stats")
+def cache_stats():
+    """Return cache statistics."""
+    now = time.time()
+    active_entries = sum(1 for _, exp in _response_cache.values() if exp > now)
+    total_requests = _cache_hits + _cache_misses
+    hit_rate = (_cache_hits / total_requests * 100) if total_requests > 0 else 0
+    
+    return {
+        "cache_hits": _cache_hits,
+        "cache_misses": _cache_misses,
+        "total_requests": total_requests,
+        "hit_rate_percent": round(hit_rate, 2),
+        "active_entries": active_entries,
+        "cache_size": len(_response_cache),
+        "ttl_seconds": CACHE_TTL_SECONDS,
+    }
+
 @app.post("/hii", response_model=HiiOk)
 def hii(req: HiiRequest):
     # Log submitted names
     names = [p.name for p in req.people]
     logger.info(f"HII request: {', '.join(names)}")
     
-    # Always return cards immediately using OpenAI web search
     backend = get_backend()
 
     people_payload = [
@@ -151,25 +215,44 @@ def hii(req: HiiRequest):
         for p in req.people
     ]
 
-    try:
-        data = backend.score_ui_cards(people_payload)
-    except Exception as e:
-        message = str(e) or "backend error"
-        if "invalid_api_key" in message or "Incorrect API key" in message or "AuthenticationError" in message:
+    # Check cache first (unless refresh is requested)
+    cache_key = _make_cache_key(people_payload)
+    if not req.refresh:
+        cached = _get_cached_response(cache_key)
+        if cached is not None:
+            logger.info(f"Cache HIT for: {', '.join(names)}")
+            data = cached
+        else:
+            logger.info(f"Cache MISS for: {', '.join(names)}")
+            data = None
+    else:
+        logger.info(f"Cache BYPASS (refresh) for: {', '.join(names)}")
+        data = None
+
+    # If not cached, call backend
+    if data is None:
+        try:
+            data = backend.score_ui_cards(people_payload)
+            # Cache the response
+            _set_cached_response(cache_key, data)
+        except Exception as e:
+            message = str(e) or "backend error"
+            if "invalid_api_key" in message or "Incorrect API key" in message or "AuthenticationError" in message:
+                return JSONResponse(
+                    status_code=502,
+                    content={
+                        "status": "error",
+                        "error": "OpenAI authentication failed. Update OPENAI_API_KEY and recreate the API container.",
+                    },
+                )
             return JSONResponse(
                 status_code=502,
                 content={
                     "status": "error",
-                    "error": "OpenAI authentication failed. Update OPENAI_API_KEY and recreate the API container.",
+                    "error": "Upstream scoring backend failed. Check API logs.",
                 },
             )
-        return JSONResponse(
-            status_code=502,
-            content={
-                "status": "error",
-                "error": "Upstream scoring backend failed. Check API logs.",
-            },
-        )
+    
     cards_raw = data.get("cards") or []
 
     cards = []
