@@ -23,6 +23,7 @@ services:
 
       NODE_OPTIONS: --max-old-space-size=2048
     volumes:
+      - ./logs:/app/logs
       - openclaw_global:/root/.openclaw
       - openclaw_hii:/root/.openclaw-hii
 

@@ -1,12 +1,46 @@
 # Human Impact Index (HII)
 
-HII is a quick, playful impact index that estimates a person’s domain influence from public signals.
+HII scores and compares public impact — part index, part character sketch.
 
 The app supports:
 - Side-by-side comparison (up to 3 people)
 - Evidence-backed score cards
 - Industry impact score (`0-100`)
 - Totem, Hot Take, Defense bullets, confidence, sources, and alternate matches
+
+## Methodology
+
+HII uses AI-powered web research to generate evidence-based impact assessments:
+
+### How It Works
+
+1. **Identity Resolution**
+   - User provides a name
+   - System searches the web to identify the correct person
+   - Returns alternate matches if identity is ambiguous
+
+2. **Research & Analysis**
+   - Uses OpenAI's API with web search enabled
+   - Gathers current information about the person's work and industry
+   - Evaluates public impact based on available evidence
+
+3. **Score Card Generation**
+   Each card includes:
+   - **Industry**: Primary field of work
+   - **Industry Impact Score** (`0-100`): Quantified influence within their industry
+   - **Totem**: A symbolic animal representing their professional style
+   - **Hot Take**: 1-2 professional, slightly sarcastic observations
+   - **Defense**: 2-3 evidence-backed bullets justifying the score
+   - **Confidence**: `low`/`medium`/`high` based on evidence quality
+   - **Sources**: 2-3 URLs used for research
+   - **Alternates**: Other possible identity matches if name is ambiguous
+
+### Scoring Principles
+
+- **Evidence-Based**: All scores and observations backed by web sources
+- **Professional Focus**: Analysis covers work/industry impact only (no personal life)
+- **Transparency**: Sources cited, confidence levels indicated
+- **Identity Safety**: If identity is unclear, confidence marked low and generic industry reported
 
 ## Feedback & Contributions
 

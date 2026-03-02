@@ -6,10 +6,26 @@ from pathlib import Path
 import os
 import re
 import time
+import logging
 from urllib.parse import urlparse
 
 from app.ui_contract import HiiRequest, HiiOk, HiiCard, Source, AlternateMatch
 from app.backends.openai_backend import OpenAIBackend
+
+# Configure logging
+LOG_DIR = Path("/app/logs")
+LOG_DIR.mkdir(exist_ok=True)
+LOG_FILE = LOG_DIR / "hii_requests.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()  # Also log to stdout for docker-compose logs
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -119,6 +135,10 @@ def health():
 
 @app.post("/hii", response_model=HiiOk)
 def hii(req: HiiRequest):
+    # Log submitted names
+    names = [p.name for p in req.people]
+    logger.info(f"HII request: {', '.join(names)}")
+    
     # Always return cards immediately using OpenAI web search
     backend = get_backend()
 
